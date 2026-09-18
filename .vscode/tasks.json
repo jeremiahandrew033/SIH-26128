@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "Run Frontend Dev Server",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/livestock-health-platform/frontend"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "type": "shell",
+      "label": "Run FastAPI Backend Server",
+      "command": "venv/Scripts/uvicorn app.main:app --reload --port 8000",
+      "options": {
+        "cwd": "${workspaceFolder}/livestock-health-platform/backend"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}
