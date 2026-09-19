@@ -8,8 +8,10 @@ interface AuthContextType {
   authMode: 'REAL' | 'DEMO' | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (identifier: string, pass: string) => Promise<void>;
   loginDemo: (role: UserRole) => Promise<void>;
+  registerFarmer: (data: Partial<UserProfile>) => Promise<void>;
+  registerVet: (data: Partial<UserProfile>) => Promise<void>;
   logout: () => void;
   updateLanguage: (lang: 'en' | 'te' | 'hi') => void;
 }
@@ -58,6 +60,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const registerFarmer = async (data: Partial<UserProfile>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const sess = await AuthService.registerFarmer(data);
+      setSession(sess);
+    } catch (err: any) {
+      setError(err.message || 'Registration failed.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registerVet = async (data: Partial<UserProfile>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const sess = await AuthService.registerVet(data);
+      setSession(sess);
+    } catch (err: any) {
+      setError(err.message || 'Registration failed.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     AuthService.logout();
     setSession(null);
@@ -95,6 +125,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         login,
         loginDemo,
+        registerFarmer,
+        registerVet,
         logout,
         updateLanguage
       }}

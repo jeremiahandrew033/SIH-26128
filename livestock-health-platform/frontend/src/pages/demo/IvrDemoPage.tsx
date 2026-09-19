@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, CheckCircle, AlertTriangle, Activity, Skull, UserPlus } from 'lucide-react';
+import { Phone, CheckCircle, AlertTriangle, Activity, Skull } from 'lucide-react';
 import { fetchFarmers, createFarmer, createHealthReport, createMortalityReport, fetchFarmerAnimals } from '../../services/api';
 import { Farmer, Animal } from '../../types';
 import { MainLayout } from '../../layouts/MainLayout';

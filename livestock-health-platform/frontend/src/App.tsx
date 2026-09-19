@@ -8,6 +8,9 @@ import { RoleGuard } from './auth/RoleGuard';
 import { AuthenticatedLayout } from './layouts/AuthenticatedLayout';
 import { MainLayout } from './layouts/MainLayout';
 import { Login } from './pages/Login';
+import { RoleLogin } from './pages/RoleLogin';
+import { RegisterFarmer } from './pages/RegisterFarmer';
+import { RegisterVet } from './pages/RegisterVet';
 import { HealthPage } from './pages/HealthPage';
 import { ArchitecturePage } from './pages/ArchitecturePage';
 
@@ -92,6 +95,9 @@ export const AppContent: React.FC = () => {
       {/* Root & Login */}
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/login/:role" element={<RoleLogin />} />
+      <Route path="/register/farmer" element={<RegisterFarmer />} />
+      <Route path="/register/vet" element={<RegisterVet />} />
 
       {/* System Monitoring & Demo */}
       <Route path="/health" element={<MainLayout bgImage="/assets/backgrounds/guardian_bg.jpg" bgOverlay="bg-slate-950/90"><HealthPage /></MainLayout>} />
@@ -137,7 +143,7 @@ export const AppContent: React.FC = () => {
 
 export const App: React.FC = () => (
   <AuthProvider>
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppContent />
     </BrowserRouter>
   </AuthProvider>

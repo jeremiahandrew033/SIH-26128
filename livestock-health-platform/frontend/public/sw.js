@@ -2,7 +2,6 @@
 const CACHE_NAME = 'livestock-health-v1';
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html',
   '/favicon.svg'
 ];
 

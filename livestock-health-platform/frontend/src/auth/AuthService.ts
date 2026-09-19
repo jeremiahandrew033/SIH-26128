@@ -1,4 +1,5 @@
 export type UserRole = 'farmer' | 'veterinary_officer' | 'government_official';
+export type UserStatus = 'active' | 'pending' | 'suspended';
 
 export interface UserProfile {
   id: string;
@@ -9,6 +10,18 @@ export interface UserProfile {
   phone?: string;
   email?: string;
   is_demo?: boolean;
+  status?: UserStatus;
+  
+  // Registration fields
+  state?: string;
+  district?: string;
+  village?: string;
+  livestock_species?: string;
+  animal_count?: number;
+  license_number?: string;
+  organization?: string;
+  password?: string; // Stored only in this mock for demo purposes
+
   created_at: string;
 }
 
@@ -19,6 +32,7 @@ export interface AuthSession {
 }
 
 const STORAGE_KEY = 'livestock_auth_session';
+const LOCAL_USERS_KEY = 'livestock_local_users';
 
 export class AuthService {
   private static demoUsers: Record<UserRole, UserProfile> = {
@@ -31,6 +45,7 @@ export class AuthService {
       phone: '+919876543210',
       email: 'farmer.demo@livestock.gov.in',
       is_demo: true,
+      status: 'active',
       created_at: new Date().toISOString()
     },
     veterinary_officer: {
@@ -42,6 +57,7 @@ export class AuthService {
       phone: '+919876543211',
       email: 'dr.anita@vet.gov.in',
       is_demo: true,
+      status: 'active',
       created_at: new Date().toISOString()
     },
     government_official: {
@@ -53,9 +69,23 @@ export class AuthService {
       phone: '+919876543212',
       email: 'rajesh.verma@gov.in',
       is_demo: true,
+      status: 'active',
       created_at: new Date().toISOString()
     }
   };
+
+  private static getLocalUsers(): UserProfile[] {
+    try {
+      const raw = localStorage.getItem(LOCAL_USERS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private static saveLocalUsers(users: UserProfile[]): void {
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+  }
 
   public static getSession(): AuthSession | null {
     try {
@@ -78,24 +108,43 @@ export class AuthService {
     return session;
   }
 
-  public static async login(email: string, pass: string): Promise<AuthSession> {
-    if (!email || !pass) {
-      throw new Error('Please enter a valid email/user ID and password.');
+  public static async login(identifier: string, pass: string): Promise<AuthSession> {
+    if (!identifier || !pass) {
+      throw new Error('Please enter valid credentials.');
     }
 
-    // Default prototype fallback matching demo logins or real auth when configured
+    // 1. Check local registered users first
+    const users = this.getLocalUsers();
+    const matchedUser = users.find(u => 
+      (u.phone === identifier || u.email === identifier) && 
+      u.password === pass
+    );
+
+    if (matchedUser) {
+      const session: AuthSession = {
+        user: matchedUser,
+        authMode: 'REAL',
+        token: `auth-token-${matchedUser.id}`
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      return session;
+    }
+
+    // 2. Default prototype fallback
     let matchedRole: UserRole = 'farmer';
-    if (email.includes('vet')) matchedRole = 'veterinary_officer';
-    if (email.includes('gov') || email.includes('admin')) matchedRole = 'government_official';
+    if (identifier.includes('vet')) matchedRole = 'veterinary_officer';
+    if (identifier.includes('gov') || identifier.includes('admin')) matchedRole = 'government_official';
 
     const profile: UserProfile = {
       id: `usr-${Date.now()}`,
-      auth_user_id: `auth-${email}`,
-      full_name: email.split('@')[0].toUpperCase(),
+      auth_user_id: `auth-${identifier}`,
+      full_name: identifier.split('@')[0].toUpperCase(),
       role: matchedRole,
       preferred_language: 'en',
-      email: email,
+      email: identifier.includes('@') ? identifier : undefined,
+      phone: !identifier.includes('@') ? identifier : undefined,
       is_demo: false,
+      status: 'active',
       created_at: new Date().toISOString()
     };
 
@@ -103,6 +152,77 @@ export class AuthService {
       user: profile,
       authMode: 'REAL',
       token: `auth-token-${Date.now()}`
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    return session;
+  }
+
+  public static async registerFarmer(data: Partial<UserProfile>): Promise<AuthSession> {
+    const users = this.getLocalUsers();
+    if (users.find(u => u.phone === data.phone)) {
+      throw new Error('A user with this mobile number already exists.');
+    }
+
+    const newUser: UserProfile = {
+      id: `farmer-${Date.now()}`,
+      auth_user_id: `auth-${data.phone}`,
+      role: 'farmer',
+      preferred_language: 'en',
+      is_demo: false,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      full_name: data.full_name || '',
+      phone: data.phone,
+      password: data.password,
+      state: data.state,
+      district: data.district,
+      village: data.village,
+      livestock_species: data.livestock_species,
+      animal_count: data.animal_count
+    };
+
+    this.saveLocalUsers([...users, newUser]);
+    
+    // Auto-login after registration
+    const session: AuthSession = {
+      user: newUser,
+      authMode: 'REAL',
+      token: `auth-token-${newUser.id}`
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    return session;
+  }
+
+  public static async registerVet(data: Partial<UserProfile>): Promise<AuthSession> {
+    const users = this.getLocalUsers();
+    if (users.find(u => u.phone === data.phone || (data.email && u.email === data.email))) {
+      throw new Error('A user with this contact information already exists.');
+    }
+
+    const newUser: UserProfile = {
+      id: `vet-${Date.now()}`,
+      auth_user_id: `auth-${data.phone}`,
+      role: 'veterinary_officer',
+      preferred_language: 'en',
+      is_demo: false,
+      status: 'pending', // Registration puts vet in pending state
+      created_at: new Date().toISOString(),
+      full_name: data.full_name || '',
+      phone: data.phone,
+      email: data.email,
+      password: data.password,
+      license_number: data.license_number,
+      organization: data.organization,
+      district: data.district
+    };
+
+    this.saveLocalUsers([...users, newUser]);
+    
+    // Auto-login (though they might be blocked by 'pending' state later)
+    const session: AuthSession = {
+      user: newUser,
+      authMode: 'REAL',
+      token: `auth-token-${newUser.id}`
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     return session;
@@ -121,3 +241,4 @@ export class AuthService {
     return session ? session.user.role : null;
   }
 }
+

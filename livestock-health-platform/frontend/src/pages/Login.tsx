@@ -1,19 +1,65 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { UserRole } from '../auth/AuthService';
 import { useTranslation } from '../i18n/useTranslation';
-import { Activity, ShieldCheck, User, Stethoscope, Building2, Lock, Mail, Globe, AlertCircle } from 'lucide-react';
+import { Activity, Globe, ChevronRight } from 'lucide-react';
+
+type Role = 'farmer' | 'vet' | 'gov';
+
+interface RoleOption {
+  id: Role;
+  emoji: string;
+  title: string;
+  subtitle: string;
+  color: string;
+  borderHover: string;
+  bgHover: string;
+  tagColor: string;
+  route: string;
+}
+
+const roles: RoleOption[] = [
+  {
+    id: 'farmer',
+    emoji: '👨‍🌾',
+    title: 'Farmer',
+    subtitle: 'Report animal health, manage herd, track vaccinations',
+    color: 'text-emerald-400',
+    borderHover: 'hover:border-emerald-500/60',
+    bgHover: 'hover:bg-emerald-500/5',
+    tagColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    route: '/login/farmer',
+  },
+  {
+    id: 'vet',
+    emoji: '🩺',
+    title: 'Veterinarian',
+    subtitle: 'Review cases, examine animals, submit diagnoses',
+    color: 'text-blue-400',
+    borderHover: 'hover:border-blue-500/60',
+    bgHover: 'hover:bg-blue-500/5',
+    tagColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    route: '/login/vet',
+  },
+  {
+    id: 'gov',
+    emoji: '🏛️',
+    title: 'Government',
+    subtitle: 'Disease surveillance, area intelligence, response coordination',
+    color: 'text-purple-400',
+    borderHover: 'hover:border-purple-500/60',
+    bgHover: 'hover:bg-purple-500/5',
+    tagColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    route: '/login/gov',
+  },
+];
 
 export const Login: React.FC = () => {
-  const { session, login, loginDemo, error, updateLanguage } = useAuth();
-  const { lang, changeLanguage, t } = useTranslation();
+  const { session, updateLanguage } = useAuth();
+  const { lang, changeLanguage } = useTranslation();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Role | null>(null);
 
   // If already authenticated, redirect to matching portal
   if (session) {
@@ -23,62 +69,38 @@ export const Login: React.FC = () => {
     if (role === 'government_official') return <Navigate to="/government" replace />;
   }
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setLocalError('Please enter a valid email and password.');
-      return;
-    }
-    setIsSubmitting(true);
-    setLocalError(null);
-    try {
-      await login(email, password);
-      // AuthContext will trigger role redirect
-    } catch (err: any) {
-      setLocalError(err.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDemoLogin = async (role: UserRole) => {
-    setIsSubmitting(true);
-    setLocalError(null);
-    try {
-      await loginDemo(role);
-      if (role === 'farmer') navigate('/farmer');
-      else if (role === 'veterinary_officer') navigate('/vet');
-      else if (role === 'government_official') navigate('/government');
-    } catch (err: any) {
-      setLocalError(err.message || 'Demo login failed.');
-    } finally {
-      setIsSubmitting(false);
+  const handleContinue = () => {
+    if (selected) {
+      const roleOption = roles.find(r => r.id === selected);
+      if (roleOption) navigate(roleOption.route);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-between text-slate-100 selection:bg-emerald-500 selection:text-white">
-      {/* Top Header / Language bar */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-slate-900 bg-slate-950/80 sticky top-0 z-50 backdrop-blur">
+    <div
+      className="min-h-screen flex flex-col text-slate-100 bg-cover bg-center relative"
+      style={{ backgroundImage: `url(/assets/backgrounds/farmer_bg.jpg)` }}
+    >
+      {/* Dimming overlay */}
+      <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
+
+      {/* Language bar */}
+      <header className="relative z-10 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2.5">
           <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
             <Activity className="w-5 h-5 text-emerald-400" />
           </div>
-          <span className="font-extrabold text-slate-100 text-lg tracking-tight">
-            LivestockHealth
+          <span className="font-extrabold text-sm text-slate-300 tracking-widest uppercase">
+            Livestock Sentinel
           </span>
         </div>
-
         <div className="flex items-center space-x-2">
           <Globe className="w-4 h-4 text-slate-400 hidden sm:inline" />
-          <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+          <div className="flex bg-slate-900/70 p-1 rounded-lg border border-slate-700/50">
             {(['en', 'te', 'hi'] as const).map((l) => (
               <button
                 key={l}
-                onClick={() => {
-                  changeLanguage(l);
-                  updateLanguage(l);
-                }}
+                onClick={() => { changeLanguage(l); updateLanguage(l); }}
                 className={`px-2.5 py-1 text-xs font-bold rounded uppercase transition-colors ${
                   lang === l ? 'bg-emerald-500 text-white shadow' : 'text-slate-400 hover:text-slate-200'
                 }`}
@@ -90,153 +112,82 @@ export const Login: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Split Desktop / Centered Mobile Content */}
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-8">
-        <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          
-          {/* LEFT: Desktop Brand Mission Visual */}
-          <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Phase 0.5 — Authentication Foundation</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-100 tracking-tight leading-tight">
-              AI-Enabled Livestock Health
-            </h1>
-
-            <p className="text-sm sm:text-base font-semibold text-emerald-400 leading-relaxed">
-              Early Detection | Prediction | Prevention | Community Containment | Management
-            </p>
-
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-md mx-auto lg:mx-0">
-              National epidemic surveillance and livestock health management platform. Securely connects farmers, veterinary officers, and government authorities.
-            </p>
-
-            {/* Platform Trust Highlights */}
-            <div className="pt-4 grid grid-cols-3 gap-3 max-w-md mx-auto lg:mx-0 text-center text-xs">
-              <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                <span className="font-extrabold text-emerald-400 text-base block">Phase 0.5</span>
-                <span className="text-[10px] text-slate-400">Auth Active</span>
-              </div>
-              <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                <span className="font-extrabold text-slate-200 text-base block">3 Roles</span>
-                <span className="text-[10px] text-slate-400">Farmer/Vet/Gov</span>
-              </div>
-              <div className="bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
-                <span className="font-extrabold text-amber-400 text-base block">SIH Ready</span>
-                <span className="text-[10px] text-slate-400">Demo Adapter</span>
-              </div>
-            </div>
+      {/* Main content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 sm:p-8">
+        {/* Brand */}
+        <div className="text-center mb-10 space-y-3">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mb-2">
+            <Activity className="w-9 h-9 text-emerald-400" />
           </div>
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+            LIVESTOCK<br />
+            <span className="text-emerald-400">SENTINEL</span>
+          </h1>
+          <p className="text-sm sm:text-base text-slate-300 font-medium max-w-md mx-auto">
+            AI-powered livestock health surveillance &amp; early warning
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            {['Early Detection', 'Prediction', 'Prevention', 'Containment'].map(tag => (
+              <span key={tag} className="px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
 
-          {/* RIGHT: Login Card */}
-          <div className="lg:col-span-6 w-full max-w-md mx-auto">
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl backdrop-blur">
-              <div className="text-center space-y-1">
-                <h2 className="text-xl font-bold text-slate-100">{t('login')}</h2>
-                <p className="text-xs text-slate-400">Sign in to access your platform role dashboard</p>
-              </div>
-
-              {(localError || error) && (
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3.5 text-rose-300 text-xs flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                  <span>{localError || error}</span>
-                </div>
-              )}
-
-              {/* Standard Email/Password Form */}
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold uppercase text-slate-300">
-                    {t('email')}
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                    <input
-                      type="text"
-                      placeholder="farmer@livestock.gov.in"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold uppercase text-slate-300">
-                    {t('password')}
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? t('checkingSession') : t('loginButton')}
-                </button>
-              </form>
-
-              {/* DEMO LOGIN SECTION */}
-              <div className="pt-2 border-t border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                    {t('demoMode')}
-                  </span>
-                  <span className="text-[10px] text-slate-500">SIH Quick Access</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('farmer')}
-                    disabled={isSubmitting}
-                    className="p-3 bg-slate-950 hover:bg-emerald-500/10 border border-slate-800 hover:border-emerald-500/40 rounded-xl text-center transition-all group"
-                  >
-                    <User className="w-5 h-5 text-emerald-400 mx-auto group-hover:scale-110 transition-transform" />
-                    <span className="block text-[10px] font-bold text-slate-200 mt-1.5">{t('farmerDemo')}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('veterinary_officer')}
-                    disabled={isSubmitting}
-                    className="p-3 bg-slate-950 hover:bg-blue-500/10 border border-slate-800 hover:border-blue-500/40 rounded-xl text-center transition-all group"
-                  >
-                    <Stethoscope className="w-5 h-5 text-blue-400 mx-auto group-hover:scale-110 transition-transform" />
-                    <span className="block text-[10px] font-bold text-slate-200 mt-1.5">{t('vetDemo')}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('government_official')}
-                    disabled={isSubmitting}
-                    className="p-3 bg-slate-950 hover:bg-purple-500/10 border border-slate-800 hover:border-purple-500/40 rounded-xl text-center transition-all group"
-                  >
-                    <Building2 className="w-5 h-5 text-purple-400 mx-auto group-hover:scale-110 transition-transform" />
-                    <span className="block text-[10px] font-bold text-slate-200 mt-1.5">{t('govDemo')}</span>
-                  </button>
-                </div>
-              </div>
+        {/* Role Selection Card */}
+        <div className="w-full max-w-md">
+          <div className="bg-slate-900/85 border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-5">
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-slate-100">Who are you?</h2>
+              <p className="text-xs text-slate-400 mt-1">Select your role to continue</p>
             </div>
+
+            <div className="space-y-3">
+              {roles.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setSelected(r.id)}
+                  className={`w-full flex items-center space-x-4 p-4 rounded-2xl border transition-all text-left group ${
+                    selected === r.id
+                      ? `border-2 ${r.color.replace('text-', 'border-').replace('-400', '-500')} bg-opacity-10 ${r.bgHover}`
+                      : `border border-slate-700/60 ${r.borderHover} ${r.bgHover}`
+                  }`}
+                >
+                  <span className="text-3xl flex-shrink-0">{r.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-base font-bold ${selected === r.id ? r.color : 'text-slate-200'}`}>
+                        {r.title}
+                      </span>
+                      {selected === r.id && (
+                        <span className={`px-2 py-0.5 border rounded-full text-[10px] font-bold ${r.tagColor}`}>
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed truncate">{r.subtitle}</p>
+                  </div>
+                  <ChevronRight className={`w-4 h-4 flex-shrink-0 transition-transform group-hover:translate-x-0.5 ${selected === r.id ? r.color : 'text-slate-600'}`} />
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleContinue}
+              disabled={!selected}
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition-all shadow-lg"
+            >
+              Continue →
+            </button>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="px-6 py-4 border-t border-slate-900 bg-slate-950 text-center text-xs text-slate-500">
-        {t('prototypeFooter')}
+      <footer className="relative z-10 px-6 py-4 text-center text-xs text-slate-500">
+        SIH 2026 Prototype — Livestock Sentinel — AI-Enabled Livestock Health Surveillance
       </footer>
     </div>
   );
