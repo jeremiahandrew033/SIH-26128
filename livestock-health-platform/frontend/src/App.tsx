@@ -23,6 +23,7 @@ import { ProfilePage } from './pages/ProfilePage';
 
 // Demo
 import { IvrDemoPage } from './pages/demo/IvrDemoPage';
+import { CctvPrototypePage } from './pages/CctvPrototypePage';
 
 // Farmer Sub-pages
 import { FarmerAnimalsPage } from './pages/farmer/FarmerAnimalsPage';
@@ -103,6 +104,7 @@ export const AppContent: React.FC = () => {
       <Route path="/health" element={<MainLayout bgImage="/assets/backgrounds/guardian_bg.jpg" bgOverlay="bg-slate-950/90"><HealthPage /></MainLayout>} />
       <Route path="/architecture" element={<MainLayout bgImage="/assets/backgrounds/guardian_bg.jpg" bgOverlay="bg-slate-950/90"><ArchitecturePage /></MainLayout>} />
       <Route path="/ivr-demo" element={<IvrDemoPage />} />
+      <Route path="/cctv" element={<MainLayout bgImage="/assets/backgrounds/guardian_bg.jpg" bgOverlay="bg-slate-950/90"><CctvPrototypePage /></MainLayout>} />
 
       {/* ─────────── FARMER ROUTES ─────────── */}
       <Route path="/farmer" element={<FarmerLayout><FarmerPortal /></FarmerLayout>} />

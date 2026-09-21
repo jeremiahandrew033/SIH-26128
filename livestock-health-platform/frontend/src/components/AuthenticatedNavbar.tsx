@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Activity, User, LogOut, Layers, Home } from 'lucide-react';
+import { Activity, User, LogOut, Layers, Home, Camera } from 'lucide-react';
 import { useTranslation } from '../i18n/useTranslation';
 import { NetworkStatusBadge } from './NetworkStatusBadge';
 
@@ -109,6 +109,18 @@ export const AuthenticatedNavbar: React.FC = () => {
           >
             <span className="text-emerald-400">📞</span>
             <span>IVR Demo</span>
+          </Link>
+
+          <Link
+            to="/cctv"
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+              isActive('/cctv')
+                ? 'bg-slate-800 text-emerald-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <Camera className="w-4 h-4 text-emerald-400" />
+            <span>CCTV</span>
           </Link>
         </nav>
 

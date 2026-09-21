@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, Layers, Server } from 'lucide-react';
+import { Activity, Layers, Server, Camera } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const location = useLocation();
@@ -54,6 +54,17 @@ export const Header: React.FC = () => {
           >
             <Layers className="w-4 h-4" />
             <span>Architecture</span>
+          </Link>
+          <Link
+            to="/cctv"
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1.5 ${
+              isActive('/cctv')
+                ? 'bg-slate-800 text-emerald-400'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Camera className="w-4 h-4" />
+            <span>CCTV Prototype</span>
           </Link>
         </nav>
       </div>
