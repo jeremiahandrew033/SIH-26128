@@ -3,7 +3,133 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  
   body {
-    @apply bg-slate-900 text-slate-100 font-sans antialiased selection:bg-emerald-500 selection:text-white;
+    @apply bg-neutral-dark text-slate-100 font-sans antialiased selection:bg-forest-500 selection:text-white;
+  }
+  
+  /* Typography system */
+  h1 {
+    @apply text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight;
+  }
+  
+  h2 {
+    @apply text-2xl sm:text-3xl font-bold tracking-tight;
+  }
+  
+  h3 {
+    @apply text-lg sm:text-xl font-bold;
+  }
+  
+  h4 {
+    @apply text-base font-bold;
+  }
+  
+  p {
+    @apply text-sm text-slate-300 leading-relaxed;
+  }
+  
+  /* Focus states for accessibility */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-2 outline-offset-2 outline-forest-500;
+  }
+  
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      @apply !animate-none !transition-none;
+    }
   }
 }
+
+@layer components {
+  /* Utility for subtle shadow and borders */
+  .card-base {
+    @apply bg-slate-900/50 border border-slate-800/60 rounded-2xl backdrop-blur transition-all duration-250;
+  }
+  
+  .card-elevated {
+    @apply card-base shadow-lg hover:shadow-xl hover:border-slate-700/80;
+  }
+  
+  .card-interactive {
+    @apply card-base border border-slate-800 hover:border-slate-700 cursor-pointer;
+  }
+  
+  .card-interactive-group {
+    @apply group;
+  }
+  
+  /* Button bases */
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-sm rounded-xl transition-all duration-250 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn-base px-4 py-2.5 bg-forest-600 hover:bg-forest-500 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply btn-base px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600;
+  }
+  
+  .btn-alert {
+    @apply btn-base px-4 py-2.5 bg-alert-600 hover:bg-alert-500 text-white shadow-lg;
+  }
+  
+  .btn-critical {
+    @apply btn-base px-4 py-2.5 bg-critical-600 hover:bg-critical-500 text-white shadow-lg;
+  }
+  
+  /* Badge bases */
+  .badge-base {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border;
+  }
+  
+  .badge-forest {
+    @apply badge-base bg-forest-500/10 text-forest-400 border-forest-500/30;
+  }
+  
+  .badge-alert {
+    @apply badge-base bg-alert-500/10 text-alert-400 border-alert-500/30;
+  }
+  
+  .badge-critical {
+    @apply badge-base bg-critical-500/10 text-critical-400 border-critical-500/30;
+  }
+  
+  .badge-info {
+    @apply badge-base bg-info-500/10 text-info-400 border-info-500/30;
+  }
+  
+  /* Input bases */
+  .input-base {
+    @apply w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-500 transition-colors duration-250 focus:outline-none focus:border-forest-500 focus:ring-1 focus:ring-forest-500/20;
+  }
+  
+  /* Section spacing */
+  .section-header {
+    @apply mb-4 pb-3 border-b border-slate-800/60;
+  }
+  
+  .section-title {
+    @apply text-sm font-bold text-slate-300 uppercase tracking-widest;
+  }
+}
+
+/* Entrance animations — stagger effect */
+.animate-stagger-1 { animation-delay: 0.1s; }
+.animate-stagger-2 { animation-delay: 0.2s; }
+.animate-stagger-3 { animation-delay: 0.3s; }
+.animate-stagger-4 { animation-delay: 0.4s; }
+.animate-stagger-5 { animation-delay: 0.5s; }
+

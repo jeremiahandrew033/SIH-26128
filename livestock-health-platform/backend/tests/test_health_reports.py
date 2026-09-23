@@ -1,8 +1,8 @@
-def test_create_health_report_case_id(client):
+def test_create_health_report_case_id(client, authed_vet_client):
     f_res = client.post("/api/v1/farmers", json={"name": "Health Test Farmer"})
     farmer_id = f_res.json()["id"]
 
-    a_res = client.post("/api/v1/animals", json={"farmer_id": farmer_id, "species": "Cattle"})
+    a_res = authed_vet_client.post("/api/v1/animals", json={"farmer_id": farmer_id, "species": "Cattle"})
     animal_id = a_res.json()["id"]
 
     hr_payload = {
@@ -14,7 +14,7 @@ def test_create_health_report_case_id(client):
         "description": "High temperature observed"
     }
 
-    res = client.post("/api/v1/health-reports", json=hr_payload)
+    res = authed_vet_client.post("/api/v1/health-reports", json=hr_payload)
     assert res.status_code == 201
     data = res.json()
     assert data["case_id"].startswith("LIV-")
@@ -22,16 +22,16 @@ def test_create_health_report_case_id(client):
     assert "Fever-like signs" in data["symptoms"]
 
     case_id = data["case_id"]
-    fetch_res = client.get(f"/api/v1/health-reports/{case_id}")
+    fetch_res = authed_vet_client.get(f"/api/v1/health-reports/{case_id}")
     assert fetch_res.status_code == 200
     assert fetch_res.json()["case_id"] == case_id
 
-def test_invalid_health_report_rejection(client):
+def test_invalid_health_report_rejection(client, authed_vet_client):
     f_res = client.post("/api/v1/farmers", json={"name": "Rejection Farmer"})
     farmer_id = f_res.json()["id"]
 
     # Missing both animal_id and herd_id
-    res = client.post("/api/v1/health-reports", json={
+    res = authed_vet_client.post("/api/v1/health-reports", json={
         "farmer_id": farmer_id,
         "report_type": "illness"
     })

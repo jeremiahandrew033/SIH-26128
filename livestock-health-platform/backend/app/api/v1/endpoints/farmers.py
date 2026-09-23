@@ -1,17 +1,21 @@
 import uuid
 import datetime
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.db.database import db_repo
 from app.schemas.farmer import FarmerCreate, FarmerResponse
+from app.core.security import get_current_user, require_role, TokenData
+from app.db.database import ROLE_FARMER, ROLE_VETERINARIAN, ROLE_GOVERNMENT
 
 router = APIRouter()
 
+
 @router.post("/farmers", response_model=FarmerResponse, status_code=201, tags=["Farmers"])
 def create_farmer(payload: FarmerCreate):
+    """Open — used by registration flows (no auth required yet)."""
     farmer_id = str(uuid.uuid4())
     now = datetime.datetime.utcnow().isoformat()
-    
+
     conn = db_repo.get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -32,8 +36,23 @@ def create_farmer(payload: FarmerCreate):
         created_at=now
     )
 
+
 @router.get("/farmers/{farmer_id}", response_model=FarmerResponse, tags=["Farmers"])
-def get_farmer(farmer_id: str):
+def get_farmer(
+    farmer_id: str,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """
+    FARMER: own profile only.
+    VETERINARIAN / GOVERNMENT: any farmer profile.
+    """
+    if current_user.role == ROLE_FARMER:
+        if current_user.farmer_id != farmer_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Farmers may only access their own profile."
+            )
+
     conn = db_repo.get_connection()
     cursor = conn.cursor()
     row = cursor.execute("SELECT * FROM farmers WHERE id = ?", (farmer_id,)).fetchone()
@@ -44,8 +63,12 @@ def get_farmer(farmer_id: str):
 
     return FarmerResponse(**dict(row))
 
+
 @router.get("/farmers", response_model=List[FarmerResponse], tags=["Farmers"])
-def list_farmers():
+def list_farmers(
+    current_user: TokenData = Depends(require_role(ROLE_VETERINARIAN, ROLE_GOVERNMENT))
+):
+    """VETERINARIAN and GOVERNMENT only."""
     conn = db_repo.get_connection()
     cursor = conn.cursor()
     rows = cursor.execute("SELECT * FROM farmers ORDER BY created_at DESC").fetchall()

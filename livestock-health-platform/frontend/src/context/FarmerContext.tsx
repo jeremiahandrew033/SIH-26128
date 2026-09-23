@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Farmer } from '../types';
-import { fetchFarmers, createFarmer } from '../services/api';
+import { fetchFarmer, createFarmer } from '../services/api';
+import { useAuth } from '../auth/AuthContext';
 
 interface FarmerContextType {
   farmers: Farmer[];
@@ -15,43 +16,33 @@ interface FarmerContextType {
 const FarmerContext = createContext<FarmerContextType | undefined>(undefined);
 
 export const FarmerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, role } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [activeFarmer, setActiveFarmer] = useState<Farmer | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const reloadFarmers = useCallback(async () => {
+    // If not a farmer or not logged in, just clear state
+    if (!user || role !== 'farmer') {
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchFarmers();
-      setFarmers(data);
-      if (data.length > 0) {
-        const savedId = localStorage.getItem('active_farmer_id');
-        // Match either saved ID or default demo farmer ID (Ravi Kumar: f1111111-1111-1111-1111-111111111111)
-        const found = data.find((f) => f.id === savedId) || data.find((f) => f.id === 'f1111111-1111-1111-1111-111111111111') || data[0];
-        setActiveFarmer(found);
-        localStorage.setItem('active_farmer_id', found.id);
-      } else {
-        const defaultFarmer = await createFarmer({
-          id: 'f1111111-1111-1111-1111-111111111111',
-          name: 'Ravi Kumar',
-          phone: '+919876543210',
-          preferred_language: 'en',
-          village: 'Rampur',
-          block: 'Amberpet',
-          district: 'Hyderabad'
-        });
-        setFarmers([defaultFarmer]);
-        setActiveFarmer(defaultFarmer);
-        localStorage.setItem('active_farmer_id', defaultFarmer.id);
-      }
+      // Instead of listing ALL farmers, we just fetch our own farmer profile
+      const data = await fetchFarmer(user.id);
+      setFarmers([data]);
+      setActiveFarmer(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load farmers');
+      // If we are logged in but our farmer profile isn't found (maybe registration pending)
+      setError(err.message || 'Failed to load farmer profile');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user, role]);
 
   useEffect(() => {
     reloadFarmers();
@@ -61,15 +52,12 @@ export const FarmerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const found = farmers.find((f) => f.id === farmerId);
     if (found) {
       setActiveFarmer(found);
-      localStorage.setItem('active_farmer_id', found.id);
     }
   };
 
   const registerFarmer = async (data: Partial<Farmer>): Promise<Farmer> => {
     const newFarmer = await createFarmer(data);
     await reloadFarmers();
-    setActiveFarmer(newFarmer);
-    localStorage.setItem('active_farmer_id', newFarmer.id);
     return newFarmer;
   };
 

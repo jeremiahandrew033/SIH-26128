@@ -18,12 +18,30 @@ export class ApiError extends Error {
   }
 }
 
+/** Read the JWT token from the stored auth session (if any). */
+function getAuthToken(): string | null {
+  try {
+    const raw = localStorage.getItem('livestock_auth_session');
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    return session?.token || null;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   try {
+    const token = getAuthToken();
+    const authHeaders: Record<string, string> = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+
     const response = await fetch(url, {
       ...options,
       headers: {
         'Accept': 'application/json',
+        ...authHeaders,
         ...(options?.headers || {})
       }
     });

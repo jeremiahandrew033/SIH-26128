@@ -1,8 +1,8 @@
-def test_mortality_report_creation(client):
+def test_mortality_report_creation(client, authed_vet_client):
     f_res = client.post("/api/v1/farmers", json={"name": "Mortality Farmer"})
     farmer_id = f_res.json()["id"]
 
-    a_res = client.post("/api/v1/animals", json={"farmer_id": farmer_id, "species": "Goat"})
+    a_res = authed_vet_client.post("/api/v1/animals", json={"farmer_id": farmer_id, "species": "Goat"})
     animal_id = a_res.json()["id"]
 
     m_payload = {
@@ -13,17 +13,17 @@ def test_mortality_report_creation(client):
         "description": "Found dead in morning"
     }
 
-    res = client.post("/api/v1/mortality-reports", json=m_payload)
+    res = authed_vet_client.post("/api/v1/mortality-reports", json=m_payload)
     assert res.status_code == 201
     data = res.json()
     assert data["case_id"].startswith("LIV-")
     assert "suspected mortality" in data["disclaimer"].lower()
 
-def test_invalid_mortality_count_rejection(client):
+def test_invalid_mortality_count_rejection(client, authed_vet_client):
     f_res = client.post("/api/v1/farmers", json={"name": "Zero Mortality Farmer"})
     farmer_id = f_res.json()["id"]
 
-    res = client.post("/api/v1/mortality-reports", json={
+    res = authed_vet_client.post("/api/v1/mortality-reports", json={
         "farmer_id": farmer_id,
         "number_of_deaths": 0
     })

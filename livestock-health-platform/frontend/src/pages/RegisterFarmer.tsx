@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Activity, User, Phone, Lock, MapPin, ArrowLeft, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Activity, User, Phone, Lock, MapPin, ArrowLeft, ArrowRight, CheckCircle, AlertCircle, Globe } from 'lucide-react';
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Gujarat', 'Haryana',
@@ -32,6 +32,7 @@ export const RegisterFarmer: React.FC = () => {
   const [animalCount, setAnimalCount] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState<'en'|'te'|'hi'>('en');
 
   const validatePhone = (phone: string) => /^(\+91|91|0)?[6-9]\d{9}$/.test(phone.replace(/\s/g, ''));
 
@@ -72,6 +73,7 @@ export const RegisterFarmer: React.FC = () => {
         village: village.trim(),
         livestock_species: species,
         animal_count: parseInt(animalCount),
+        preferred_language: preferredLanguage,
       });
       navigate('/farmer');
     } catch (err: any) {
@@ -181,6 +183,21 @@ export const RegisterFarmer: React.FC = () => {
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">Used for IVR phone reporting system</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Preferred Language *</label>
+                <div className="relative">
+                  <Globe className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                  <select
+                    value={preferredLanguage}
+                    onChange={e => setPreferredLanguage(e.target.value as 'en'|'te'|'hi')}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 appearance-none"
+                  >
+                    <option value="en">English</option>
+                    <option value="te">Telugu (తెలుగు)</option>
+                    <option value="hi">Hindi (हिंदी)</option>
+                  </select>
+                </div>
               </div>
               <button onClick={nextStep} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl flex items-center justify-center space-x-2 transition-colors">
                 <span>Next: Location</span><ArrowRight className="w-4 h-4" />

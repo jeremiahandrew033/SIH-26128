@@ -98,14 +98,22 @@ export class AuthService {
   }
 
   public static async loginDemo(role: UserRole): Promise<AuthSession> {
-    const profile = this.demoUsers[role];
-    const session: AuthSession = {
-      user: profile,
-      authMode: 'DEMO',
-      token: `demo-token-${role}`
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    return session;
+    // Map the requested role to the demo credentials seeded in the backend
+    let username = '';
+    let password = '';
+    if (role === 'farmer') {
+      username = 'farmer.demo';
+      password = 'farmer123';
+    } else if (role === 'veterinary_officer') {
+      username = 'vet.demo';
+      password = 'vet123';
+    } else if (role === 'government_official') {
+      username = 'gov.demo';
+      password = 'gov123';
+    }
+    
+    // Use the newly real backend login for demo login
+    return this.login(username, password);
   }
 
   public static async login(identifier: string, pass: string): Promise<AuthSession> {
@@ -113,48 +121,55 @@ export class AuthService {
       throw new Error('Please enter valid credentials.');
     }
 
-    // 1. Check local registered users first
-    const users = this.getLocalUsers();
-    const matchedUser = users.find(u => 
-      (u.phone === identifier || u.email === identifier) && 
-      u.password === pass
-    );
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', identifier);
+      formData.append('password', pass);
 
-    if (matchedUser) {
-      const session: AuthSession = {
-        user: matchedUser,
-        authMode: 'REAL',
-        token: `auth-token-${matchedUser.id}`
+      const baseUrl = 'http://localhost:8000';
+      const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString()
+      });
+
+      if (!response.ok) {
+        throw new Error('Invalid username or password');
+      }
+
+      const data = await response.json();
+      const token = data.access_token;
+      
+      // Determine role safely
+      const roleStr = (data.role || 'farmer').toLowerCase();
+      let role: UserRole = 'farmer';
+      if (roleStr === 'veterinarian' || roleStr === 'veterinary_officer') role = 'veterinary_officer';
+      if (roleStr === 'government' || roleStr === 'government_official') role = 'government_official';
+
+      const profile: UserProfile = {
+        id: data.farmer_id || `usr-${Date.now()}`,
+        auth_user_id: `auth-${identifier}`,
+        full_name: identifier,
+        role: role,
+        preferred_language: 'en',
+        is_demo: true,
+        status: 'active',
+        created_at: new Date().toISOString()
       };
+
+      const session: AuthSession = {
+        user: profile,
+        authMode: 'REAL',
+        token: token
+      };
+      
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       return session;
+    } catch (err: any) {
+      throw new Error(err.message || 'Login failed.');
     }
-
-    // 2. Default prototype fallback
-    let matchedRole: UserRole = 'farmer';
-    if (identifier.includes('vet')) matchedRole = 'veterinary_officer';
-    if (identifier.includes('gov') || identifier.includes('admin')) matchedRole = 'government_official';
-
-    const profile: UserProfile = {
-      id: `usr-${Date.now()}`,
-      auth_user_id: `auth-${identifier}`,
-      full_name: identifier.split('@')[0].toUpperCase(),
-      role: matchedRole,
-      preferred_language: 'en',
-      email: identifier.includes('@') ? identifier : undefined,
-      phone: !identifier.includes('@') ? identifier : undefined,
-      is_demo: false,
-      status: 'active',
-      created_at: new Date().toISOString()
-    };
-
-    const session: AuthSession = {
-      user: profile,
-      authMode: 'REAL',
-      token: `auth-token-${Date.now()}`
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    return session;
   }
 
   public static async registerFarmer(data: Partial<UserProfile>): Promise<AuthSession> {

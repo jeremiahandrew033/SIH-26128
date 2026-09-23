@@ -1,15 +1,48 @@
 import uuid
 import datetime
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.db.database import db_repo
 from app.schemas.report import MortalityReportCreate, MortalityReportResponse, LocationPayload
 from app.utils.case_id import generate_case_id
+from app.core.security import get_current_user, require_role, TokenData
+from app.db.database import ROLE_FARMER, ROLE_VETERINARIAN, ROLE_GOVERNMENT
 
 router = APIRouter()
 
+
+def _build_mortality_report_response(r_dict: dict, cursor) -> MortalityReportResponse:
+    """Helper: enrich a raw mortality_reports row with location and attachments."""
+    loc_data = None
+    if r_dict.get("location_id"):
+        loc_row = cursor.execute("SELECT * FROM locations WHERE id = ?", (r_dict["location_id"],)).fetchone()
+        if loc_row:
+            loc_dict = dict(loc_row)
+            loc_data = LocationPayload(
+                latitude=loc_dict.get("latitude"),
+                longitude=loc_dict.get("longitude"),
+                accuracy_meters=loc_dict.get("accuracy_meters"),
+                village=loc_dict.get("village"),
+                block=loc_dict.get("block"),
+                district=loc_dict.get("district")
+            )
+    r_dict["location"] = loc_data
+
+    att_rows = cursor.execute("SELECT file_path FROM case_attachments WHERE case_id = ?", (r_dict["case_id"],)).fetchall()
+    r_dict["attachments"] = [r["file_path"] for r in att_rows]
+
+    return MortalityReportResponse(**r_dict)
+
+
 @router.post("/mortality-reports", response_model=MortalityReportResponse, status_code=201, tags=["Mortality Reports"])
-def create_mortality_report(payload: MortalityReportCreate):
+def create_mortality_report(
+    payload: MortalityReportCreate,
+    current_user: TokenData = Depends(get_current_user)
+):
+    # FARMER: enforce their own farmer_id
+    if current_user.role == ROLE_FARMER and current_user.farmer_id != payload.farmer_id:
+        raise HTTPException(status_code=403, detail="Farmers may only submit reports for their own account.")
+
     if payload.number_of_deaths <= 0:
         raise HTTPException(status_code=400, detail="Number of deaths must be greater than 0.")
 
@@ -25,7 +58,7 @@ def create_mortality_report(payload: MortalityReportCreate):
         existing = cursor.execute("SELECT case_id FROM mortality_reports WHERE client_tx_id = ?", (payload.client_tx_id,)).fetchone()
         if existing:
             conn.close()
-            return get_mortality_report(existing["case_id"])
+            return get_mortality_report(existing["case_id"], current_user)
 
     farmer = cursor.execute("SELECT id FROM farmers WHERE id = ?", (payload.farmer_id,)).fetchone()
     if not farmer:
@@ -74,8 +107,12 @@ def create_mortality_report(payload: MortalityReportCreate):
         updated_at=now
     )
 
+
 @router.get("/mortality-reports/{case_id}", response_model=MortalityReportResponse, tags=["Mortality Reports"])
-def get_mortality_report(case_id: str):
+def get_mortality_report(
+    case_id: str,
+    current_user: TokenData = Depends(get_current_user)
+):
     conn = db_repo.get_connection()
     cursor = conn.cursor()
 
@@ -86,55 +123,24 @@ def get_mortality_report(case_id: str):
 
     report_dict = dict(row)
 
-    location_data = None
-    if report_dict.get("location_id"):
-        loc_row = cursor.execute("SELECT * FROM locations WHERE id = ?", (report_dict["location_id"],)).fetchone()
-        if loc_row:
-            loc_dict = dict(loc_row)
-            location_data = LocationPayload(
-                latitude=loc_dict.get("latitude"),
-                longitude=loc_dict.get("longitude"),
-                accuracy_meters=loc_dict.get("accuracy_meters"),
-                village=loc_dict.get("village"),
-                block=loc_dict.get("block"),
-                district=loc_dict.get("district")
-            )
-    report_dict["location"] = location_data
+    # FARMER: own cases only
+    if current_user.role == ROLE_FARMER and current_user.farmer_id != report_dict["farmer_id"]:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Mortality report with Case ID/ID {case_id} not found")
 
-    attachment_rows = cursor.execute("SELECT file_path FROM case_attachments WHERE case_id = ?", (report_dict["case_id"],)).fetchall()
-    report_dict["attachments"] = [r["file_path"] for r in attachment_rows]
-
+    result = _build_mortality_report_response(report_dict, cursor)
     conn.close()
-    return MortalityReportResponse(**report_dict)
+    return result
+
 
 @router.get("/mortality-reports", response_model=List[MortalityReportResponse], tags=["Mortality Reports"])
-def list_all_mortality_reports():
+def list_all_mortality_reports(
+    current_user: TokenData = Depends(require_role(ROLE_VETERINARIAN, ROLE_GOVERNMENT))
+):
+    """Aggregated mortality report list — VETERINARIAN and GOVERNMENT only."""
     conn = db_repo.get_connection()
     cursor = conn.cursor()
     rows = cursor.execute("SELECT * FROM mortality_reports ORDER BY created_at DESC").fetchall()
-    
-    results = []
-    for r in rows:
-        r_dict = dict(r)
-        
-        loc_data = None
-        if r_dict.get("location_id"):
-            loc_row = cursor.execute("SELECT * FROM locations WHERE id = ?", (r_dict["location_id"],)).fetchone()
-            if loc_row:
-                loc_dict = dict(loc_row)
-                loc_data = LocationPayload(
-                    latitude=loc_dict.get("latitude"),
-                    longitude=loc_dict.get("longitude"),
-                    accuracy_meters=loc_dict.get("accuracy_meters"),
-                    village=loc_dict.get("village"),
-                    block=loc_dict.get("block"),
-                    district=loc_dict.get("district")
-                )
-        r_dict["location"] = loc_data
-
-        att_rows = cursor.execute("SELECT file_path FROM case_attachments WHERE case_id = ?", (r_dict["case_id"],)).fetchall()
-        r_dict["attachments"] = [att["file_path"] for att in att_rows]
-        results.append(MortalityReportResponse(**r_dict))
-
+    results = [_build_mortality_report_response(dict(r), cursor) for r in rows]
     conn.close()
     return results

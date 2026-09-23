@@ -11,6 +11,14 @@ class Settings(BaseSettings):
     # CORS Configuration
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    # JWT Authentication Security Settings
+    JWT_SECRET: str  # REQUIRED: Set via JWT_SECRET env variable — no hardcoded default
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 hours
+
+    # Environment Feature Flags
+    DEMO_MODE: bool = False
+
     # Database & Supabase Placeholders (Phase 1)
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
@@ -24,7 +32,7 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         if not self.CORS_ORIGINS:
-            return ["*"]
+            return ["http://localhost:5173"]  # Safe default for local dev — never wildcard
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
 
 settings = Settings()

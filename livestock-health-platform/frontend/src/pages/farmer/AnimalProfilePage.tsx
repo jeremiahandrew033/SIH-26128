@@ -63,10 +63,11 @@ export const AnimalProfilePage: React.FC = () => {
     setSubmitting(true);
     try {
       const newV = await createVaccination({
+        farmer_id: animal.farmer_id,
         animal_id: animal.id,
         vaccine_name: vVaccineName,
         vaccination_date: vDate,
-        batch_number: vBatch || undefined
+        notes: vBatch ? `Batch: ${vBatch}` : undefined
       });
       setVaccinations((prev) => [newV, ...prev]);
       setShowVaccinationModal(false);
@@ -85,10 +86,11 @@ export const AnimalProfilePage: React.FC = () => {
     setSubmitting(true);
     try {
       const newT = await createTreatment({
+        farmer_id: animal.farmer_id,
         animal_id: animal.id,
         treatment_name: tTreatmentName,
         treatment_date: tDate,
-        dosage: tDosage || undefined
+        notes: tDosage ? `Dosage: ${tDosage}` : undefined
       });
       setTreatments((prev) => [newT, ...prev]);
       setShowTreatmentModal(false);

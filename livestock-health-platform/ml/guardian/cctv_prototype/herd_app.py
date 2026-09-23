@@ -109,6 +109,7 @@ class AnalysisResult:
     max_visible_cows: int
     tracked_frames: int
     model_weights: str
+    output_video_path: Optional[str] = None
 
 
 @st.cache_resource(show_spinner=False)
@@ -338,14 +339,20 @@ def write_uploaded_video(uploaded_file) -> str:
 
 
 def run_analysis(
-    uploaded_file,
+    video_source,
     model_weights: str,
     detection_confidence: float,
     inference_size: int,
     minimum_hold_seconds: float,
     agreement_threshold: float,
 ) -> AnalysisResult:
-    video_path = write_uploaded_video(uploaded_file)
+    if isinstance(video_source, (str, Path)):
+        video_path = str(video_source)
+        is_temp = False
+    else:
+        video_path = write_uploaded_video(video_source)
+        is_temp = True
+
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
         if os.path.exists(video_path):
@@ -353,7 +360,22 @@ def run_analysis(
         raise RuntimeError("The uploaded file could not be opened as a video.")
 
     fps = float(capture.get(cv2.CAP_PROP_FPS) or 25.0)
+    width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+
+    # Use NamedTemporaryFile (safer than mktemp) and H.264 (avc1) so that
+    # browsers can play the output natively inside st.video / the iframe.
+    _tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+    output_path = _tmp_file.name
+    _tmp_file.close()
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    if not writer.isOpened():
+        # avc1 may fail on some builds; fall back to mp4v
+        writer.release()
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     registry = HerdRegistry(reacquire_frames=max(15, int(fps * 2.5)))
     model = load_detector(model_weights)
@@ -411,6 +433,8 @@ def run_analysis(
             # Draw the bounding boxes
             annotated = draw_overlay(frame, visible, frame_number, fps, len(registry.states))
             
+            writer.write(annotated)
+            
             # ---------------------------------------------------------
             # HARDWARE-ACCELERATED DESKTOP WINDOW DISPLAY (NO BROWSER LAG)
             # ---------------------------------------------------------
@@ -433,8 +457,10 @@ def run_analysis(
                 )
     finally:
         capture.release()
+        if writer is not None and writer.isOpened():
+            writer.release()
         cv2.destroyAllWindows()  # Cleanly closes the OpenCV desktop window
-        if os.path.exists(video_path):
+        if is_temp and os.path.exists(video_path):
             os.unlink(video_path)
 
     progress.empty()
@@ -447,6 +473,7 @@ def run_analysis(
         max_visible_cows=max_visible,
         tracked_frames=tracked_frames,
         model_weights=model_weights,
+        output_video_path=output_path,
     )
 
 
@@ -519,7 +546,23 @@ def render_app() -> None:
 
     with st.sidebar:
         st.header("Upload and tracking setup")
-        uploaded = st.file_uploader("Upload test CCTV recording", type=["mp4", "mov", "avi", "mkv"])
+        input_source = st.radio("Video Source", ["Example CCTV Video", "Upload Your Own Video"])
+        
+        sample_path = Path(os.path.join(os.path.dirname(__file__), "../../../assets/sample_videos/example_cctv.mp4")).resolve()
+        uploaded = None
+        selected_video_source = None
+        
+        if input_source == "Example CCTV Video":
+            if not sample_path.exists():
+                st.warning(f"Example video not found at {sample_path.relative_to(Path(os.path.dirname(__file__)).parent.parent.parent)}")
+            else:
+                st.success("Example video selected.")
+                selected_video_source = sample_path
+        else:
+            uploaded = st.file_uploader("Upload test CCTV recording", type=["mp4", "mov", "avi", "mkv"])
+            if uploaded:
+                selected_video_source = uploaded
+
         with st.form("tracking_settings", border=False):
             model_label = st.selectbox("Detection model", ["Balanced accuracy (recommended)", "High accuracy (slower)"])
             detection_confidence = st.slider(
@@ -535,7 +578,11 @@ def render_app() -> None:
             analyse = st.form_submit_button("Start CCTV Prototype", type="primary")
         st.caption("Higher resolution improves small or distant cow detection but increases processing time.")
 
-    file_signature = (uploaded.name, uploaded.size) if uploaded is not None else None
+    if input_source == "Example CCTV Video":
+        file_signature = ("example_cctv.mp4", 0)
+    else:
+        file_signature = (uploaded.name, uploaded.size) if uploaded is not None else None
+        
     if st.session_state.get("uploaded_file_signature") != file_signature:
         st.session_state["uploaded_file_signature"] = file_signature
         st.session_state.pop("analysis", None)
@@ -545,17 +592,17 @@ def render_app() -> None:
         "Keep an eye on your taskbar. To stop the video and view reports early, click on the video window and press 'q'."
     )
 
-    if uploaded is None:
+    if selected_video_source is None:
         with st.container(border=True):
             st.subheader("Ready for a herd video")
-            st.write("Upload a video to see a stable label for every cow, live tracking boxes, and individual behaviour reports.")
+            st.write("Upload a video or select the example to see a stable label for every cow, live tracking boxes, and individual behaviour reports.")
             st.markdown("**For reliable IDs:** keep the camera stable, avoid heavy overlap, and show each cow clearly for 10 seconds or more.")
     elif analyse:
         weights = "yolo11s.pt" if model_label.startswith("Balanced") else "yolo11m.pt"
         st.session_state.pop("analysis", None)
         try:
             st.session_state["analysis"] = run_analysis(
-                uploaded,
+                selected_video_source,
                 model_weights=weights,
                 detection_confidence=detection_confidence,
                 inference_size=int(inference_size),
@@ -588,6 +635,23 @@ def render_app() -> None:
         if choices:
             selected_name = st.selectbox("Inspect one tracked cow", list(choices), key="selected_cow")
             render_animal_report(analysis, choices[selected_name])
+
+        if hasattr(analysis, 'output_video_path') and analysis.output_video_path and os.path.exists(analysis.output_video_path):
+            st.divider()
+            st.subheader("Processed Output Video")
+            try:
+                # Provide download and display
+                with open(analysis.output_video_path, 'rb') as f:
+                    st.download_button(
+                        label="Download Processed Video",
+                        data=f,
+                        file_name="processed_cctv_output.mp4",
+                        mime="video/mp4",
+                        type="primary"
+                    )
+                st.video(analysis.output_video_path)
+            except Exception as e:
+                st.error(f"Failed to load processed video: {e}")
 
     st.divider()
     with st.expander("Tracking reliability and limits"):

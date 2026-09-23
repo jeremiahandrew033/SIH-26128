@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useFarmer } from '../../context/FarmerContext';
-import { FolderHeart, AlertTriangle, Skull, Syringe, Stethoscope, ClipboardList, Plus } from 'lucide-react';
+import { FolderHeart, AlertTriangle, Skull, Syringe, Stethoscope, ClipboardList, Plus, Mic, PhoneCall, X } from 'lucide-react';
 
 export const FarmerDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { activeFarmer } = useFarmer();
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -30,6 +31,42 @@ export const FarmerDashboard: React.FC = () => {
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Speak to Report */}
+          <button
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="group bg-slate-900/80 border border-blue-500/30 hover:border-blue-500/60 rounded-xl p-5 transition-all shadow-md flex items-start space-x-4 text-left w-full"
+          >
+            <div className="p-3 bg-blue-500/10 rounded-xl group-hover:scale-105 transition-transform border border-blue-500/30">
+              <Mic className="w-7 h-7 text-blue-400" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-100 group-hover:text-blue-400 transition-colors">
+                Speak to Report
+              </h4>
+              <p className="text-xs text-slate-400 mt-1">
+                Record a voice message to report an issue without typing.
+              </p>
+            </div>
+          </button>
+
+          {/* Call Veterinary Support */}
+          <a
+            href="tel:+9118001234567"
+            className="group bg-slate-900/80 border border-emerald-500/30 hover:border-emerald-500/60 rounded-xl p-5 transition-all shadow-md flex items-start space-x-4 text-left w-full"
+          >
+            <div className="p-3 bg-emerald-500/10 rounded-xl group-hover:scale-105 transition-transform border border-emerald-500/30">
+              <PhoneCall className="w-7 h-7 text-emerald-400" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-100 group-hover:text-emerald-400 transition-colors">
+                Call Veterinary Support
+              </h4>
+              <p className="text-xs text-slate-400 mt-1">
+                Speak directly to our support agents via toll-free number.
+              </p>
+            </div>
+          </a>
+
           {/* My Animals */}
           <Link
             to="/farmer/animals"
@@ -150,6 +187,36 @@ export const FarmerDashboard: React.FC = () => {
           <span>{t('registerNewAnimal')}</span>
         </Link>
       </div>
+
+      {/* Voice Reporting Modal */}
+      {isVoiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-sm w-full relative shadow-2xl">
+            <button
+              onClick={() => setIsVoiceModalOpen(false)}
+              className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-20 h-20 rounded-full bg-blue-500/20 flex items-center justify-center border-4 border-blue-500/30 shadow-lg">
+                <Mic className="w-10 h-10 text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-100">Voice Reporting</h3>
+              <p className="text-sm text-slate-400">
+                Voice reporting will be available soon.
+              </p>
+              <button
+                onClick={() => setIsVoiceModalOpen(false)}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition-colors mt-2"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

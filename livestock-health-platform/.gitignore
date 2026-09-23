@@ -53,3 +53,22 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+
+# ML model weights (large binaries - use DVC or download separately)
+*.pt
+*.pth
+*.onnx
+*.weights
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Sample / asset videos (large media files)
+assets/sample_videos/*
+!assets/sample_videos/.gitkeep

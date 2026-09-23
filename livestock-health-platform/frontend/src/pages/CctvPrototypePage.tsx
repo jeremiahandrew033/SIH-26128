@@ -14,7 +14,7 @@ export const CctvPrototypePage: React.FC = () => {
     setIframeLoaded(false);
     setIframeError(false);
     try {
-      const res = await fetch(STREAMLIT_URL, { mode: 'no-cors', cache: 'no-store' });
+      await fetch(STREAMLIT_URL, { mode: 'no-cors', cache: 'no-store' });
       // no-cors will always return opaque response if server is up
       setStatus('online');
     } catch {

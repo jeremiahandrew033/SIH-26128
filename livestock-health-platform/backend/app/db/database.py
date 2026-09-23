@@ -8,6 +8,11 @@ from datetime import datetime
 
 logger = logging.getLogger("livestock-platform.db")
 
+# Roles supported by the platform
+ROLE_FARMER = "FARMER"
+ROLE_VETERINARIAN = "VETERINARIAN"
+ROLE_GOVERNMENT = "GOVERNMENT"
+
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "livestock_phase1.db"))
 
 class DatabaseRepository:
@@ -167,6 +172,15 @@ class DatabaseRepository:
             duration_seconds INTEGER,
             created_at TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL,
+            farmer_id TEXT,
+            created_at TEXT
+        );
         """)
         
         # Schema migration checks for existing DB files
@@ -195,5 +209,52 @@ class DatabaseRepository:
         conn.commit()
         conn.close()
         logger.info(f"Database initialized persistently at {self.db_path}")
+        self._seed_demo_users()
+
+    def _seed_demo_users(self):
+        """Seed demo accounts (farmer/vet/government) if no users exist yet."""
+        from app.core.security import hash_password  # local import to avoid circular
+        from app.core.config import settings
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        if not settings.DEMO_MODE:
+            cursor.execute("DELETE FROM users WHERE username IN ('farmer.demo', 'vet.demo', 'gov.demo')")
+            conn.commit()
+            conn.close()
+            return
+
+        now = datetime.utcnow().isoformat()
+        # Ensure a demo farmer row exists so farmer_id FK is valid
+        demo_farmer_id = "f1111111-1111-1111-1111-111111111111"
+        existing_farmer = cursor.execute(
+            "SELECT id FROM farmers WHERE id = ?", (demo_farmer_id,)
+        ).fetchone()
+        if not existing_farmer:
+            cursor.execute("""
+                INSERT INTO farmers (id, name, phone, preferred_language, village, block, district, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (demo_farmer_id, "Ravi Kumar (Demo)", "+919876543210", "en", "Demo Village", "Demo Block", "Demo District", now))
+
+        demo_accounts = [
+            ("farmer.demo", "farmer123", ROLE_FARMER, demo_farmer_id),
+            ("vet.demo", "vet123", ROLE_VETERINARIAN, None),
+            ("gov.demo", "gov123", ROLE_GOVERNMENT, None),
+        ]
+        
+        for username, password, role, farmer_id in demo_accounts:
+            existing_user = cursor.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+            hashed_pwd = hash_password(password)
+            if existing_user:
+                cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (hashed_pwd, username))
+            else:
+                cursor.execute(
+                    "INSERT INTO users (id, username, password_hash, role, farmer_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    (str(uuid.uuid4()), username, hashed_pwd, role, farmer_id, now)
+                )
+
+        conn.commit()
+        conn.close()
+        logger.info("Demo users seeded/updated: farmer.demo / vet.demo / gov.demo")
 
 db_repo = DatabaseRepository()
