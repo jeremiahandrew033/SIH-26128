@@ -34,6 +34,8 @@ export interface AuthSession {
 const STORAGE_KEY = 'livestock_auth_session';
 const LOCAL_USERS_KEY = 'livestock_local_users';
 
+import { API_BASE_URL } from '../config/env';
+
 export class AuthService {
   private static demoUsers: Record<UserRole, UserProfile> = {
     farmer: {
@@ -126,7 +128,7 @@ export class AuthService {
       formData.append('username', identifier);
       formData.append('password', pass);
 
-      const baseUrl = 'http://localhost:8000';
+      const baseUrl = API_BASE_URL;
       const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
