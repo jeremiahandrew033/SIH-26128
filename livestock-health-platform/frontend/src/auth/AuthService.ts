@@ -99,34 +99,20 @@ export class AuthService {
     }
   }
 
+  /**
+   * One-click demo login — always bypasses the network.
+   * In REAL mode, falls through to the seeded backend demo accounts.
+   */
   public static async loginDemo(role: UserRole): Promise<AuthSession> {
-    // If in Demo Mode, bypass network call immediately
-    if (IS_DEMO_MODE) {
-      const profile = this.demoUsers[role];
-      const session: AuthSession = {
-        user: profile,
-        authMode: 'DEMO',
-        token: `demo-token-${role}-${Date.now()}`
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-      return session;
-    }
-
-    // Map the requested role to the demo credentials seeded in the backend
-    let username = '';
-    let password = '';
-    if (role === 'farmer') {
-      username = 'farmer.demo';
-      password = 'farmer123';
-    } else if (role === 'veterinary_officer') {
-      username = 'vet.demo';
-      password = 'vet123';
-    } else if (role === 'government_official') {
-      username = 'gov.demo';
-      password = 'gov123';
-    }
-    
-    return this.login(username, password);
+    // Always bypass network in demo mode
+    const profile = { ...this.demoUsers[role] };
+    const session: AuthSession = {
+      user: profile,
+      authMode: 'DEMO',
+      token: `demo-token-${role}-${Date.now()}`
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    return session;
   }
 
   public static async login(identifier: string, pass: string): Promise<AuthSession> {
@@ -134,51 +120,57 @@ export class AuthService {
       throw new Error('Please enter valid credentials.');
     }
 
-    // Fast-path demo login for known demo users in Demo Mode or when API is empty
+    // --- DEMO MODE: no network calls ever ---
     if (IS_DEMO_MODE) {
-      let role: UserRole = 'farmer';
-      let profile: UserProfile = this.demoUsers.farmer;
+      // 1. Exact-match the three seeded demo accounts
+      const DEMO_CREDENTIALS: Record<string, UserRole> = {
+        'farmer.demo': 'farmer',
+        'vet.demo':    'veterinary_officer',
+        'gov.demo':    'government_official',
+      };
+      const DEMO_PASSWORDS: Record<string, string> = {
+        'farmer.demo': 'farmer123',
+        'vet.demo':    'vet123',
+        'gov.demo':    'gov123',
+      };
 
-      if (identifier === 'vet.demo' || identifier.includes('vet')) {
-        role = 'veterinary_officer';
-        profile = this.demoUsers.veterinary_officer;
-      } else if (identifier === 'gov.demo' || identifier.includes('gov')) {
-        role = 'government_official';
-        profile = this.demoUsers.government_official;
-      } else if (identifier === 'farmer.demo' || identifier.includes('farmer')) {
-        role = 'farmer';
-        profile = this.demoUsers.farmer;
-      } else {
-        // Check locally registered demo users
-        const localUsers = this.getLocalUsers();
-        const found = localUsers.find(
-          (u) => (u.phone === identifier || u.email === identifier || u.full_name === identifier) && u.password === pass
-        );
-        if (found) {
-          profile = found;
-          role = found.role;
-        } else {
-          // Allow custom user login in demo mode
-          profile = {
-            id: `usr-${Date.now()}`,
-            auth_user_id: `auth-${identifier}`,
-            full_name: identifier,
-            role: 'farmer',
-            preferred_language: 'en',
-            is_demo: true,
-            status: 'active',
-            created_at: new Date().toISOString()
-          };
+      if (DEMO_CREDENTIALS[identifier] !== undefined) {
+        if (pass !== DEMO_PASSWORDS[identifier]) {
+          throw new Error('Incorrect demo password. Use the demo button to log in instantly.');
         }
+        const role = DEMO_CREDENTIALS[identifier];
+        const profile = { ...this.demoUsers[role] };
+        const session: AuthSession = {
+          user: profile,
+          authMode: 'DEMO',
+          token: `demo-token-${role}-${Date.now()}`
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        return session;
       }
 
-      const session: AuthSession = {
-        user: profile,
-        authMode: 'DEMO',
-        token: `demo-token-${Date.now()}`
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-      return session;
+      // 2. Check locally registered users (self-registered in demo session)
+      const localUsers = this.getLocalUsers();
+      const found = localUsers.find(
+        (u) =>
+          (u.phone === identifier || u.email === identifier) &&
+          u.password === pass
+      );
+      if (found) {
+        const session: AuthSession = {
+          user: { ...found },
+          authMode: 'DEMO',
+          token: `demo-token-${found.id}-${Date.now()}`
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        return session;
+      }
+
+      // 3. Unknown credentials — reject clearly
+      throw new Error(
+        'Unknown credentials in demo mode. Use the "Use Demo Account" button to log in, ' +
+        'or enter farmer.demo / farmer123 for quick access.'
+      );
     }
 
     try {
