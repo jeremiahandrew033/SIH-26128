@@ -9,7 +9,8 @@ import { useOnlineStatus } from '../../offline/useOnlineStatus';
 import { Animal, Herd, LocationPayload } from '../../types';
 import { ArrowLeft, Camera, MapPin, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft, Brain } from 'lucide-react';
 import { AIScreeningPanel } from '../../components/AIScreeningPanel';
-import { API_BASE_URL } from '../../config/env';
+import { API_BASE_URL, IS_DEMO_MODE } from '../../config/env';
+import { demoRepo } from '../../services/demoRepo';
 
 const SYMPTOM_OPTIONS = [
   'Fever-like signs',
@@ -96,11 +97,21 @@ export const HealthReportFormPage: React.FC = () => {
       setPhotoPreview(URL.createObjectURL(file));
       setAiScreening(null);
 
-      // Attempt client-side AI pre-screening via backend /api/v1/health/ai-screen
+      // Attempt client-side AI pre-screening
       const isOnline = navigator.onLine && localStorage.getItem('demo_simulated_offline') !== 'true';
       if (isOnline) {
         setAiScreeningLoading(true);
         try {
+          if (IS_DEMO_MODE || !API_BASE_URL) {
+            // Simulated instant AI pre-screening response for demo mode
+            const simResult = demoRepo.simulateAiScreening(file, selectedSymptoms);
+            setTimeout(() => {
+              setAiScreening(simResult);
+              setAiScreeningLoading(false);
+            }, 300);
+            return;
+          }
+
           const formData = new FormData();
           formData.append('file', file);
           // Pass selected symptoms for context

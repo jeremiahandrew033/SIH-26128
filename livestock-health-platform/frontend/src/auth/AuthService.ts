@@ -34,7 +34,7 @@ export interface AuthSession {
 const STORAGE_KEY = 'livestock_auth_session';
 const LOCAL_USERS_KEY = 'livestock_local_users';
 
-import { API_BASE_URL } from '../config/env';
+import { API_BASE_URL, IS_DEMO_MODE } from '../config/env';
 
 export class AuthService {
   private static demoUsers: Record<UserRole, UserProfile> = {
@@ -100,6 +100,18 @@ export class AuthService {
   }
 
   public static async loginDemo(role: UserRole): Promise<AuthSession> {
+    // If in Demo Mode, bypass network call immediately
+    if (IS_DEMO_MODE) {
+      const profile = this.demoUsers[role];
+      const session: AuthSession = {
+        user: profile,
+        authMode: 'DEMO',
+        token: `demo-token-${role}-${Date.now()}`
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      return session;
+    }
+
     // Map the requested role to the demo credentials seeded in the backend
     let username = '';
     let password = '';
@@ -114,13 +126,59 @@ export class AuthService {
       password = 'gov123';
     }
     
-    // Use the newly real backend login for demo login
     return this.login(username, password);
   }
 
   public static async login(identifier: string, pass: string): Promise<AuthSession> {
     if (!identifier || !pass) {
       throw new Error('Please enter valid credentials.');
+    }
+
+    // Fast-path demo login for known demo users in Demo Mode or when API is empty
+    if (IS_DEMO_MODE) {
+      let role: UserRole = 'farmer';
+      let profile: UserProfile = this.demoUsers.farmer;
+
+      if (identifier === 'vet.demo' || identifier.includes('vet')) {
+        role = 'veterinary_officer';
+        profile = this.demoUsers.veterinary_officer;
+      } else if (identifier === 'gov.demo' || identifier.includes('gov')) {
+        role = 'government_official';
+        profile = this.demoUsers.government_official;
+      } else if (identifier === 'farmer.demo' || identifier.includes('farmer')) {
+        role = 'farmer';
+        profile = this.demoUsers.farmer;
+      } else {
+        // Check locally registered demo users
+        const localUsers = this.getLocalUsers();
+        const found = localUsers.find(
+          (u) => (u.phone === identifier || u.email === identifier || u.full_name === identifier) && u.password === pass
+        );
+        if (found) {
+          profile = found;
+          role = found.role;
+        } else {
+          // Allow custom user login in demo mode
+          profile = {
+            id: `usr-${Date.now()}`,
+            auth_user_id: `auth-${identifier}`,
+            full_name: identifier,
+            role: 'farmer',
+            preferred_language: 'en',
+            is_demo: true,
+            status: 'active',
+            created_at: new Date().toISOString()
+          };
+        }
+      }
+
+      const session: AuthSession = {
+        user: profile,
+        authMode: 'DEMO',
+        token: `demo-token-${Date.now()}`
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      return session;
     }
 
     try {
