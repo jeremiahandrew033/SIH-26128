@@ -13,5 +13,9 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    watch: {
+      // Exclude large/locked media files from file watcher to prevent EBUSY errors
+      ignored: ['**/public/videos/**', '**/*.mp4', '**/*.mov', '**/*.avi'],
+    },
   },
 });
