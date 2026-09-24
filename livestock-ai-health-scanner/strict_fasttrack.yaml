@@ -1,0 +1,18 @@
+# Occlusion-aware all-cow tracker. Strict thresholds prevent weak detections
+# from becoming new identities while low-confidence associations help recover
+# an existing, briefly occluded animal.
+tracker_type: fasttrack
+track_high_thresh: 0.35
+track_low_thresh: 0.12
+new_track_thresh: 0.35
+track_buffer: 75
+match_thresh: 0.80
+fuse_score: true
+reset_velocity_offset_occ: 5
+reset_pos_offset_occ: 3
+enlarge_bbox_occ: 1.10
+dampen_motion_occ: 0.50
+active_occ_to_lost_thresh: 12
+occ_cover_thresh: 0.70
+occ_reappear_window: 90
+init_iou_suppress: 0.80
